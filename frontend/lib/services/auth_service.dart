@@ -1,8 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 
-/// Servicio de autenticación.
-/// Samuel implementa los métodos. El equipo ya puede llamarlos.
-///
+/// Servicio de autenticación — implementado con Firebase Auth + Firestore.
 /// Daniela usa: register, login, logout, recoverPassword, currentUser
 class AuthService {
   // ─── Singleton ───────────────────────────────────────────────
@@ -10,95 +10,122 @@ class AuthService {
   factory AuthService() => _instance;
   AuthService._internal();
 
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+
   // ─── Estado de sesión ─────────────────────────────────────────
 
   /// Usuario actualmente autenticado. Null si no hay sesión.
-  UserModel? get currentUser {
-    // TODO: Samuel — retornar usuario desde Firebase Auth + Firestore
-    return null;
-  }
+  UserModel? _currentUser;
+  UserModel? get currentUser => _currentUser;
+  bool get isLoggedIn => _currentUser != null;
 
-  /// True si hay una sesión activa.
-  bool get isLoggedIn => currentUser != null;
+  /// Escucha cambios de sesión al arrancar la app.
+  /// Llamar en main.dart una sola vez: AuthService().init()
+  Future<void> init() async {
+    final firebaseUser = _auth.currentUser;
+    if (firebaseUser != null) {
+      _currentUser = await _fetchUser(firebaseUser.uid);
+    }
+  }
 
   // ─── Métodos ──────────────────────────────────────────────────
 
-  /// Registra un nuevo usuario.
-  /// Retorna el UserModel creado, o lanza Exception con mensaje legible.
-  ///
-  /// Ejemplo de uso (Daniela):
-  /// ```dart
-  /// try {
-  ///   final user = await AuthService().register(
-  ///     name: 'Daniela Fierro',
-  ///     email: 'dfierro@unilibre.edu.co',
-  ///     password: 'segura2026!',
-  ///     phone: '3101234567',
-  ///   );
-  /// } catch (e) {
-  ///   // mostrar e.toString() en el snackbar
-  /// }
-  /// ```
+  /// Registra un nuevo usuario en Firebase Auth + Firestore.
   Future<UserModel> register({
     required String name,
     required String email,
     required String password,
     required String phone,
   }) async {
-    // TODO: Samuel — Firebase Auth createUserWithEmailAndPassword
-    // luego guardar en Firestore colección "usuarios"
-    throw UnimplementedError('register() — pendiente Samuel');
+    try {
+      // 1. Crear cuenta en Firebase Auth
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+
+      final uid = credential.user!.uid;
+
+      // 2. Guardar datos extra en Firestore
+      final user = UserModel(
+        uid: uid,
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        role: 'user',
+        createdAt: DateTime.now(),
+      );
+
+      await _db.collection('usuarios').doc(uid).set(user.toMap());
+
+      _currentUser = user;
+      return user;
+    } on FirebaseAuthException catch (e) {
+      throw Exception(_authError(e.code));
+    }
   }
 
   /// Inicia sesión con email y contraseña.
-  /// Retorna el UserModel, o lanza Exception con mensaje legible.
-  ///
-  /// Ejemplo de uso (Daniela):
-  /// ```dart
-  /// try {
-  ///   final user = await AuthService().login(
-  ///     email: emailController.text,
-  ///     password: passwordController.text,
-  ///   );
-  ///   Navigator.pushReplacementNamed(context, '/feed');
-  /// } catch (e) {
-  ///   // mostrar error
-  /// }
-  /// ```
   Future<UserModel> login({
     required String email,
     required String password,
   }) async {
-    // TODO: Samuel — Firebase Auth signInWithEmailAndPassword
-    throw UnimplementedError('login() — pendiente Samuel');
+    try {
+      final credential = await _auth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+
+      final user = await _fetchUser(credential.user!.uid);
+      if (user == null) throw Exception('Usuario no encontrado en la base de datos.');
+
+      _currentUser = user;
+      return user;
+    } on FirebaseAuthException catch (e) {
+      throw Exception(_authError(e.code));
+    }
   }
 
   /// Cierra la sesión activa.
-  ///
-  /// Ejemplo de uso (Daniela):
-  /// ```dart
-  /// await AuthService().logout();
-  /// Navigator.pushReplacementNamed(context, '/login');
-  /// ```
   Future<void> logout() async {
-    // TODO: Samuel — Firebase Auth signOut
-    throw UnimplementedError('logout() — pendiente Samuel');
+    await _auth.signOut();
+    _currentUser = null;
   }
 
-  /// Envía un correo de recuperación de contraseña.
-  /// Lanza Exception si el email no está registrado.
-  ///
-  /// Ejemplo de uso (Daniela):
-  /// ```dart
-  /// try {
-  ///   await AuthService().recoverPassword(email: emailController.text);
-  ///   // mostrar "Correo enviado"
-  /// } catch (e) {
-  ///   // mostrar error
-  /// }
-  /// ```
+  /// Envía correo de recuperación de contraseña.
   Future<void> recoverPassword({required String email}) async {
-    // TODO: Samuel — Firebase Auth sendPasswordResetEmail
-    throw UnimplementedError('recoverPassword() — pendiente Samuel');
+    try {
+      await _auth.sendPasswordResetEmail(email: email.trim());
+    } on FirebaseAuthException catch (e) {
+      throw Exception(_authError(e.code));
+    }
+  }
+
+  // ─── Interno ──────────────────────────────────────────────────
+
+  Future<UserModel?> _fetchUser(String uid) async {
+    final doc = await _db.collection('usuarios').doc(uid).get();
+    if (!doc.exists) return null;
+    return UserModel.fromMap(doc.data()!);
+  }
+
+  String _authError(String code) {
+    switch (code) {
+      case 'email-already-in-use':
+        return 'El correo ya está registrado en la plataforma.';
+      case 'user-not-found':
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Credenciales inválidas. Verifica tu correo y contraseña.';
+      case 'weak-password':
+        return 'La contraseña debe tener al menos 6 caracteres.';
+      case 'invalid-email':
+        return 'El formato del correo no es válido.';
+      case 'too-many-requests':
+        return 'Demasiados intentos. Intenta más tarde.';
+      default:
+        return 'Error de autenticación. Intenta nuevamente.';
+    }
   }
 }

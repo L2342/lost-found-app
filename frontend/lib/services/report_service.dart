@@ -1,8 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/report_model.dart';
+import 'auth_service.dart';
 
-/// Servicio de reportes.
-/// Samuel implementa los métodos. El equipo ya puede llamarlos.
-///
+/// Servicio de reportes — implementado con Firestore.
 /// Jarol usa: create, update, delete, getMyReports
 /// David usa: getAll, getById
 class ReportService {
@@ -11,23 +11,12 @@ class ReportService {
   factory ReportService() => _instance;
   ReportService._internal();
 
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  CollectionReference get _col => _db.collection('reportes');
+
   // ─── Métodos ──────────────────────────────────────────────────
 
-  /// Crea un nuevo reporte en Firestore.
-  /// Retorna el id del documento creado.
-  ///
-  /// Ejemplo de uso (Jarol):
-  /// ```dart
-  /// final id = await ReportService().create(
-  ///   tipo: 'perdido',
-  ///   titulo: tituloController.text,
-  ///   descripcion: descController.text,
-  ///   ubicacion: ubicacionController.text,
-  ///   fecha: '2026-05-01',
-  ///   categoria: categoriaSeleccionada,
-  ///   imagenUrl: urlDeCloudinary, // puede ser null
-  /// );
-  /// ```
+  /// Crea un nuevo reporte. Retorna el id del documento creado.
   Future<String> create({
     required String tipo,
     required String titulo,
@@ -37,21 +26,29 @@ class ReportService {
     required String categoria,
     String? imagenUrl,
   }) async {
-    // TODO: Samuel — agregar a Firestore colección "reportes"
-    // incluir userId, userName, userPhone desde AuthService.currentUser
-    throw UnimplementedError('create() — pendiente Samuel');
+    final user = AuthService().currentUser;
+    if (user == null) throw Exception('Debes iniciar sesión para publicar un reporte.');
+
+    final data = {
+      'tipo': tipo,
+      'titulo': titulo.trim(),
+      'descripcion': descripcion.trim(),
+      'ubicacion': ubicacion.trim(),
+      'fecha': fecha,
+      'categoria': categoria,
+      'imagenUrl': imagenUrl,
+      'userId': user.uid,
+      'userName': user.name,
+      'userPhone': user.phone,
+      'estado': 'activo',
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+
+    final doc = await _col.add(data);
+    return doc.id;
   }
 
-  /// Actualiza campos de un reporte existente.
-  /// Solo pasa los campos que cambian.
-  ///
-  /// Ejemplo de uso (Jarol):
-  /// ```dart
-  /// await ReportService().update(
-  ///   id: report.id,
-  ///   descripcion: nuevoTexto,
-  /// );
-  /// ```
+  /// Actualiza solo los campos que se pasen (no-null).
   Future<void> update(
     String id, {
     String? titulo,
@@ -62,63 +59,65 @@ class ReportService {
     String? imagenUrl,
     String? estado,
   }) async {
-    // TODO: Samuel — Firestore update solo los campos no-null
-    throw UnimplementedError('update() — pendiente Samuel');
+    final user = AuthService().currentUser;
+    if (user == null) throw Exception('Debes iniciar sesión.');
+
+    final Map<String, dynamic> data = {};
+    if (titulo != null) data['titulo'] = titulo.trim();
+    if (descripcion != null) data['descripcion'] = descripcion.trim();
+    if (ubicacion != null) data['ubicacion'] = ubicacion.trim();
+    if (fecha != null) data['fecha'] = fecha;
+    if (categoria != null) data['categoria'] = categoria;
+    if (imagenUrl != null) data['imagenUrl'] = imagenUrl;
+    if (estado != null) data['estado'] = estado;
+
+    if (data.isEmpty) return;
+    await _col.doc(id).update(data);
   }
 
   /// Elimina un reporte por id.
-  ///
-  /// Ejemplo de uso (Jarol):
-  /// ```dart
-  /// await ReportService().delete(report.id);
-  /// ```
   Future<void> delete(String id) async {
-    // TODO: Samuel — Firestore delete documento
-    throw UnimplementedError('delete() — pendiente Samuel');
+    final user = AuthService().currentUser;
+    if (user == null) throw Exception('Debes iniciar sesión.');
+    await _col.doc(id).delete();
   }
 
-  /// Retorna un Stream de todos los reportes activos,
-  /// ordenados por fecha de creación descendente.
-  ///
-  /// Ejemplo de uso (David):
-  /// ```dart
-  /// StreamBuilder<List<ReportModel>>(
-  ///   stream: ReportService().getAll(),
-  ///   builder: (context, snapshot) {
-  ///     if (!snapshot.hasData) return CircularProgressIndicator();
-  ///     final reportes = snapshot.data!;
-  ///     return ListView.builder(...);
-  ///   },
-  /// )
-  /// ```
-  Stream<List<ReportModel>> getAll() {
-    // TODO: Samuel — Firestore snapshots colección "reportes"
-    // filtrar donde estado == "activo"
-    return const Stream.empty();
+  /// Stream de todos los reportes activos, más recientes primero.
+  /// David lo usa con StreamBuilder para el feed.
+  Stream<List<ReportModel>> getAll({String? tipo, String? categoria}) {
+    Query query = _col
+        .where('estado', isEqualTo: 'activo')
+        .orderBy('createdAt', descending: true);
+
+    if (tipo != null) query = query.where('tipo', isEqualTo: tipo);
+    if (categoria != null) query = query.where('categoria', isEqualTo: categoria);
+
+    return query.snapshots().map((snap) => snap.docs
+        .map((doc) => ReportModel.fromMap(
+              doc.data() as Map<String, dynamic>,
+              doc.id,
+            ))
+        .toList());
   }
 
   /// Retorna un reporte por su id.
-  ///
-  /// Ejemplo de uso (David):
-  /// ```dart
-  /// final reporte = await ReportService().getById(reportId);
-  /// ```
   Future<ReportModel?> getById(String id) async {
-    // TODO: Samuel — Firestore get documento por id
-    return null;
+    final doc = await _col.doc(id).get();
+    if (!doc.exists) return null;
+    return ReportModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
   }
 
-  /// Retorna un Stream de los reportes del usuario actual.
-  ///
-  /// Ejemplo de uso (Jarol):
-  /// ```dart
-  /// StreamBuilder<List<ReportModel>>(
-  ///   stream: ReportService().getMyReports(uid),
-  ///   builder: (context, snapshot) { ... },
-  /// )
-  /// ```
+  /// Stream de reportes del usuario actual (para "mis publicaciones").
   Stream<List<ReportModel>> getMyReports(String uid) {
-    // TODO: Samuel — Firestore snapshots filtrado por userId == uid
-    return const Stream.empty();
+    return _col
+        .where('userId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => ReportModel.fromMap(
+                  doc.data() as Map<String, dynamic>,
+                  doc.id,
+                ))
+            .toList());
   }
 }

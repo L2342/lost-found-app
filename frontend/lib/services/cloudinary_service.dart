@@ -2,40 +2,43 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-/// Servicio de subida de imágenes a Cloudinary.
-/// Samuel configura las credenciales. Jarol llama uploadImage().
-///
-/// Jarol usa: uploadImage
+/// Servicio de imágenes — sube a Cloudinary, retorna URL pública.
+/// Jarol lo usa al crear o editar un reporte.
 class CloudinaryService {
   // ─── Configuración ────────────────────────────────────────────
-  static const String _cloudName = 'dkes89hg6';
-  static const String _uploadPreset = 'reportes_app';
+  static const String _cloudName   = 'dkes89hg6';
+  static const String _uploadPreset = 'reportes_app'; // unsigned preset
 
   // ─── Singleton ───────────────────────────────────────────────
   static final CloudinaryService _instance = CloudinaryService._internal();
   factory CloudinaryService() => _instance;
   CloudinaryService._internal();
 
-  // ─── Métodos ──────────────────────────────────────────────────
+  // ─── Método principal ─────────────────────────────────────────
 
-  /// Sube una imagen a Cloudinary y retorna la URL pública.
-  /// Retorna null si falla la subida.
+  /// Sube una imagen a Cloudinary.
+  /// Retorna la URL pública (https://...) o null si falla.
   ///
-  /// Ejemplo de uso (Jarol):
+  /// Uso en el formulario de reporte (Jarol):
   /// ```dart
-  /// // 1. El usuario selecciona imagen con image_picker
-  /// final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+  /// final picked = await ImagePicker().pickImage(
+  ///   source: ImageSource.gallery,
+  ///   imageQuality: 70,   // reduce el peso de la imagen
+  /// );
   /// if (picked == null) return;
   ///
-  /// // 2. Subir a Cloudinary
+  /// setState(() => _uploading = true);
   /// final url = await CloudinaryService().uploadImage(File(picked.path));
+  /// setState(() => _uploading = false);
+  ///
   /// if (url == null) {
-  ///   // mostrar error
+  ///   ScaffoldMessenger.of(context).showSnackBar(
+  ///     const SnackBar(content: Text('No se pudo subir la imagen')),
+  ///   );
   ///   return;
   /// }
-  ///
-  /// // 3. Pasar la URL al crear el reporte
-  /// await ReportService().create(..., imagenUrl: url);
+  /// // guardar url en estado local y pasarla al ReportService.create()
+  /// setState(() => _imagenUrl = url);
   /// ```
   Future<String?> uploadImage(File imageFile) async {
     try {
@@ -50,12 +53,13 @@ class CloudinaryService {
         );
 
       final response = await request.send();
-      final body = await response.stream.bytesToString();
+      final body    = await response.stream.bytesToString();
 
       if (response.statusCode == 200) {
-        final json = jsonDecode(body);
+        final json = jsonDecode(body) as Map<String, dynamic>;
         return json['secure_url'] as String?;
       }
+
       return null;
     } catch (_) {
       return null;
