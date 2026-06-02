@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'services/auth_service.dart';
+import 'services/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,8 +30,12 @@ class EncuentraloApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: AuthService().isLoggedIn
-          ? const Scaffold(body: Center(child: Text('Feed — David implementa esto')))
-          : const Scaffold(body: Center(child: Text('Login — Daniela implementa esto'))),
+    ? const Scaffold(
+        body: Center(
+          child: Text('Feed — David implementa esto'),
+        ),
+      )
+    : const LoginScreen(),
     );
   }
 }
