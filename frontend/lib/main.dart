@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+
 import 'firebase_options.dart';
 import 'services/auth_service.dart';
-import 'services/login_screen.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/feed/feed_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializar Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -26,16 +27,14 @@ class EncuentraloApp extends StatelessWidget {
       title: 'Encuéntralo',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1D9E75)),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF1D9E75),
+        ),
         useMaterial3: true,
       ),
       home: AuthService().isLoggedIn
-    ? const Scaffold(
-        body: Center(
-          child: Text('Feed — David implementa esto'),
-        ),
-      )
-    : const LoginScreen(),
+          ? const FeedScreen()
+          : const LoginScreen(),
     );
   }
 }
