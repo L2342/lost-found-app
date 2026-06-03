@@ -30,6 +30,8 @@ build/
 
 # Flutter generated
 **/generated_plugin_registrant.dart
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+macos/Flutter/GeneratedPluginRegistrant.swift
 
 # Android
 android/.gradle/
