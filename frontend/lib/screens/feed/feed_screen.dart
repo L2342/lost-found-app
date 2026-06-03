@@ -8,6 +8,8 @@ import '../auth/login_screen.dart';
 import '../report_form_screen.dart';
 import '../my_reports_screen.dart';
 import '../admin/admin_screen.dart';
+import '../profile/profile_screen.dart';
+
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -103,31 +105,16 @@ class _FeedScreenState extends State<FeedScreen> {
         centerTitle: true,
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
+
         actions: [
           IconButton(
-            tooltip: 'Mis publicaciones',
-            icon: const Icon(Icons.folder_open_outlined),
-            onPressed: _abrirMisPublicaciones,
-          ),
-          if (isAdmin)
-            IconButton(
-              tooltip: 'Panel administrador',
-              icon: const Icon(Icons.admin_panel_settings_outlined),
-              onPressed: _abrirAdmin,
-            ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await AuthService().logout();
-
-              if (!context.mounted) return;
-
-              Navigator.pushAndRemoveUntil(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const LoginScreen(),
+                  builder: (_) => ProfileScreen(),
                 ),
-                (route) => false,
               );
             },
           ),
