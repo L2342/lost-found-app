@@ -26,12 +26,13 @@ GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 # ─── Token admin simple ───────────────────────────────────────────────────────
-ADMIN_TOKEN = os.environ.get('ADMIN_TOKEN', 'admin-token-encuentralo')
+ADMIN_TOKEN = (os.environ.get('ADMIN_TOKEN') or 'admin-token-encuentralo').strip()
 
 def require_admin(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        auth_header = request.headers.get('Authorization', '').strip()
+        token = auth_header[7:].strip() if auth_header.lower().startswith('bearer ') else auth_header
         if token != ADMIN_TOKEN:
             return jsonify({'success': False, 'message': 'Acceso no autorizado'}), 401
         return f(*args, **kwargs)

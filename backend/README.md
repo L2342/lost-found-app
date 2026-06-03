@@ -24,7 +24,7 @@ pip install -r requirements.txt
 ### 4. Obtener API key de Gemini (gratis)
 - Ir a: https://aistudio.google.com/app/apikey
 - Crear API key
-- Crear archivo `.env` con:
+- Copiar `.env.example` a `.env` y completar:
 ```
 GEMINI_API_KEY=tu_api_key_aqui
 ADMIN_TOKEN=admin-token-encuentralo
@@ -49,6 +49,13 @@ Servidor corre en: http://localhost:5000
 ## Header requerido para endpoints admin
 ```
 Authorization: Bearer admin-token-encuentralo
+```
+
+## Nota para el frontend
+- El frontend usa por defecto el mismo token: `admin-token-encuentralo`.
+- Si cambias `ADMIN_TOKEN` en backend, debes ejecutar Flutter con:
+```bash
+flutter run -d chrome --dart-define=ADMIN_TOKEN=tu_token
 ```
 
 ## URL que David usa desde Flutter

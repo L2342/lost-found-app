@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../models/user_model.dart';
-import '../../services/user_service.dart';
+import '../../config/app_config.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -12,9 +12,8 @@ class AdminScreen extends StatefulWidget {
 }
 
 class _AdminScreenState extends State<AdminScreen> {
-  static const String _baseUrl = 'https://TU_BACKEND_SAMUEL.com';
-
-  final UserService _userService = UserService(); // singleton
+  String get _baseUrl => AppConfig.backendBaseUrl;
+  String get _adminToken => AppConfig.adminToken;
 
   Map<String, dynamic>? _estadisticas;
   List<UserModel> _usuarios = [];
@@ -33,32 +32,75 @@ class _AdminScreenState extends State<AdminScreen> {
       _error = null;
     });
     try {
-      // Carga en paralelo: estadísticas Flask + usuarios Firestore
+      final headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_adminToken',
+      };
+
+      // Carga en paralelo: estadísticas + usuarios desde backend Flask.
       final results = await Future.wait([
         http
-            .get(Uri.parse('$_baseUrl/api/admin/estadisticas'))
+            .get(
+              Uri.parse('$_baseUrl/api/admin/estadisticas'),
+              headers: headers,
+            )
             .timeout(const Duration(seconds: 10)),
-        _userService.getAllUsers(),
+        http
+            .get(
+              Uri.parse('$_baseUrl/api/admin/usuarios'),
+              headers: headers,
+            )
+            .timeout(const Duration(seconds: 10)),
       ]);
 
-      final res = results[0] as http.Response;
-      final usuarios = results[1] as List<UserModel>;
+      final statsRes = results[0];
+      final usersRes = results[1];
 
-      if (res.statusCode == 200) {
+      if (statsRes.statusCode == 401 || usersRes.statusCode == 401) {
         setState(() {
-          _estadisticas = jsonDecode(res.body);
-          _usuarios = usuarios;
+          _error =
+              '401 No autorizado. Verifica ADMIN_TOKEN en backend y frontend.';
           _loading = false;
         });
-      } else {
-        setState(() {
-          _error = 'Error del servidor (${res.statusCode})';
-          _loading = false;
-        });
+        return;
       }
+
+      if (statsRes.statusCode != 200 || usersRes.statusCode != 200) {
+        setState(() {
+          _error =
+              'Error del servidor (stats ${statsRes.statusCode}, users ${usersRes.statusCode})';
+          _loading = false;
+        });
+        return;
+      }
+
+      final statsJson = jsonDecode(statsRes.body) as Map<String, dynamic>;
+      final usersJson = jsonDecode(usersRes.body) as Map<String, dynamic>;
+
+      final statsData = (statsJson['data'] as Map<String, dynamic>? ?? {});
+      final usersData = (usersJson['data'] as Map<String, dynamic>? ?? {});
+      final usersList = (usersData['usuarios'] as List<dynamic>? ?? []);
+
+      final usuarios = usersList
+          .whereType<Map<String, dynamic>>()
+          .map((u) => UserModel(
+                uid: u['uid'] ?? '',
+                name: u['name'] ?? '',
+                email: u['email'] ?? '',
+                phone: u['phone'] ?? '',
+                role: u['role'] ?? 'user',
+                createdAt: DateTime.now(),
+              ))
+          .toList();
+
+      setState(() {
+        _estadisticas = statsData;
+        _usuarios = usuarios;
+        _loading = false;
+      });
     } catch (e) {
       setState(() {
-        _error = 'No se pudo conectar al servidor';
+        _error = 'No se pudo conectar al servidor: $e';
         _loading = false;
       });
     }
@@ -100,10 +142,10 @@ class _AdminScreenState extends State<AdminScreen> {
 
   Widget _buildContenido() {
     final stats = _estadisticas!;
-    final totalUsuarios = stats['total_usuarios'] ?? _usuarios.length;
-    final totalReportes = stats['total_reportes'] ?? 0;
-    final reportesPerdidos = stats['reportes_perdidos'] ?? 0;
-    final reportesEncontrados = stats['reportes_encontrados'] ?? 0;
+    final totalUsuarios = stats['usuarios'] ?? _usuarios.length;
+    final totalReportes = stats['reportes'] ?? 0;
+    final reportesPerdidos = stats['perdidos'] ?? 0;
+    final reportesEncontrados = stats['encontrados'] ?? 0;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),

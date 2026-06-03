@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/report_model.dart';
@@ -50,7 +50,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
   String? _categoria;
   String? _fecha;         // YYYY-MM-DD
   String? _imagenUrl;     // URL ya subida a Cloudinary
-  File?   _imagenLocal;   // preview local antes de subir
+  Uint8List? _imagenLocalBytes; // preview local antes de subir
  
   bool _uploading = false;
   bool _saving    = false;
@@ -96,20 +96,27 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
       imageQuality: 70,
     );
     if (picked == null) return;
+
+    final bytes = await picked.readAsBytes();
  
     setState(() {
-      _imagenLocal = File(picked.path);
+      _imagenLocalBytes = bytes;
       _uploading   = true;
     });
  
-    final url = await _cloudinaryService.uploadImage(_imagenLocal!);
+    final url = await _cloudinaryService.uploadImage(picked);
  
     setState(() => _uploading = false);
  
     if (url == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo subir la imagen. Intenta de nuevo.')),
+        SnackBar(
+          content: Text(
+            _cloudinaryService.lastError ??
+                'No se pudo subir la imagen. Intenta de nuevo.',
+          ),
+        ),
       );
       return;
     }
@@ -223,7 +230,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
             children: [
               // ── Imagen ──────────────────────────────────────
               _ImagenPicker(
-                imagenLocal:  _imagenLocal,
+                imagenLocalBytes: _imagenLocalBytes,
                 imagenUrl:    _imagenUrl,
                 uploading:    _uploading,
                 onTap:        _pickImage,
@@ -272,7 +279,7 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
  
               // ── Categoría ───────────────────────────────────
               DropdownButtonFormField<String>(
-                value:       _categoria,
+                initialValue: _categoria,
                 decoration:  const InputDecoration(
                   labelText:   'Categoría',
                   border:      OutlineInputBorder(),
@@ -325,13 +332,13 @@ class _ReportFormScreenState extends State<ReportFormScreen> {
 // ─── Widgets auxiliares ───────────────────────────────────────────────────────
  
 class _ImagenPicker extends StatelessWidget {
-  final File?    imagenLocal;
+  final Uint8List? imagenLocalBytes;
   final String?  imagenUrl;
   final bool     uploading;
   final VoidCallback onTap;
  
   const _ImagenPicker({
-    required this.imagenLocal,
+    required this.imagenLocalBytes,
     required this.imagenUrl,
     required this.uploading,
     required this.onTap,
@@ -350,10 +357,10 @@ class _ImagenPicker extends StatelessWidget {
           Text('Subiendo imagen…'),
         ],
       );
-    } else if (imagenLocal != null) {
+    } else if (imagenLocalBytes != null) {
       content = ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Image.file(imagenLocal!, fit: BoxFit.cover),
+        child: Image.memory(imagenLocalBytes!, fit: BoxFit.cover),
       );
     } else if (imagenUrl != null) {
       content = ClipRRect(

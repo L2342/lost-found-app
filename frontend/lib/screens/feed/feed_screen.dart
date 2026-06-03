@@ -5,6 +5,9 @@ import '../../widgets/report_card.dart';
 import '../detail/detail_screen.dart';
 import '../../services/auth_service.dart';
 import '../auth/login_screen.dart';
+import '../report_form_screen.dart';
+import '../my_reports_screen.dart';
+import '../admin/admin_screen.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -32,6 +35,57 @@ class _FeedScreenState extends State<FeedScreen> {
     }).toList();
   }
 
+  Future<void> _abrirCrearReporte() async {
+    final tipo = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(
+              title: Text('Crear reporte'),
+              subtitle: Text('Selecciona el tipo de publicación'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.search_off, color: Colors.redAccent),
+              title: const Text('Objeto perdido'),
+              onTap: () => Navigator.pop(ctx, 'perdido'),
+            ),
+            ListTile(
+              leading:
+                  const Icon(Icons.inventory_2_outlined, color: Colors.green),
+              title: const Text('Objeto encontrado'),
+              onTap: () => Navigator.pop(ctx, 'encontrado'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (tipo == null || !mounted) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReportFormScreen(tipo: tipo),
+      ),
+    );
+  }
+
+  void _abrirMisPublicaciones() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const MyReportsScreen()),
+    );
+  }
+
+  void _abrirAdmin() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AdminScreen()),
+    );
+  }
+
   @override
   void dispose() {
     _searchCtrl.dispose();
@@ -40,6 +94,9 @@ class _FeedScreenState extends State<FeedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = AuthService().currentUser;
+    final isAdmin = currentUser?.role == 'admin';
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Objetos perdidos'),
@@ -47,6 +104,17 @@ class _FeedScreenState extends State<FeedScreen> {
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            tooltip: 'Mis publicaciones',
+            icon: const Icon(Icons.folder_open_outlined),
+            onPressed: _abrirMisPublicaciones,
+          ),
+          if (isAdmin)
+            IconButton(
+              tooltip: 'Panel administrador',
+              icon: const Icon(Icons.admin_panel_settings_outlined),
+              onPressed: _abrirAdmin,
+            ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
@@ -64,6 +132,11 @@ class _FeedScreenState extends State<FeedScreen> {
             },
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _abrirCrearReporte,
+        icon: const Icon(Icons.add),
+        label: const Text('Crear reporte'),
       ),
       body: Column(
         children: [
@@ -96,12 +169,12 @@ class _FeedScreenState extends State<FeedScreen> {
           // Filtros (US-15)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 _buildChip('Todos', 'todos'),
-                const SizedBox(width: 8),
                 _buildChip('Perdidos', 'perdido'),
-                const SizedBox(width: 8),
                 _buildChip('Encontrados', 'encontrado'),
               ],
             ),
@@ -117,15 +190,80 @@ class _FeedScreenState extends State<FeedScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  return const Center(child: Text('Error al cargar reportes'));
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        'Error al cargar reportes:\n${snapshot.error}',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
                 }
 
                 final todos = snapshot.data ?? [];
                 final filtrados = _filtrar(todos);
 
                 if (filtrados.isEmpty) {
-                  return const Center(
-                    child: Text('No se encontraron reportes'),
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.inbox_outlined,
+                            size: 56,
+                            color: Colors.black54,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'No se encontraron reportes',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Publica el primero para comenzar.',
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              FilledButton.icon(
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const ReportFormScreen(
+                                      tipo: 'perdido',
+                                    ),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.search_off),
+                                label: const Text('Publicar perdido'),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const ReportFormScreen(
+                                      tipo: 'encontrado',
+                                    ),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.inventory_2_outlined),
+                                label: const Text('Publicar encontrado'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   );
                 }
 

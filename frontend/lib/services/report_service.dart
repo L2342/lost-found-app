@@ -85,19 +85,22 @@ class ReportService {
   /// Stream de todos los reportes activos, más recientes primero.
   /// David lo usa con StreamBuilder para el feed.
   Stream<List<ReportModel>> getAll({String? tipo, String? categoria}) {
-    Query query = _col
-        .where('estado', isEqualTo: 'activo')
-        .orderBy('createdAt', descending: true);
+    Query query = _col.where('estado', isEqualTo: 'activo');
 
     if (tipo != null) query = query.where('tipo', isEqualTo: tipo);
     if (categoria != null) query = query.where('categoria', isEqualTo: categoria);
 
-    return query.snapshots().map((snap) => snap.docs
-        .map((doc) => ReportModel.fromMap(
-              doc.data() as Map<String, dynamic>,
-              doc.id,
-            ))
-        .toList());
+    return query.snapshots().map((snap) {
+      final items = snap.docs
+          .map((doc) => ReportModel.fromMap(
+                doc.data() as Map<String, dynamic>,
+                doc.id,
+              ))
+          .toList();
+
+      items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return items;
+    });
   }
 
   /// Retorna un reporte por su id.
@@ -111,13 +114,17 @@ class ReportService {
   Stream<List<ReportModel>> getMyReports(String uid) {
     return _col
         .where('userId', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => ReportModel.fromMap(
-                  doc.data() as Map<String, dynamic>,
-                  doc.id,
-                ))
-            .toList());
+        .map((snap) {
+          final items = snap.docs
+              .map((doc) => ReportModel.fromMap(
+                    doc.data() as Map<String, dynamic>,
+                    doc.id,
+                  ))
+              .toList();
+
+          items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return items;
+        });
   }
 }
