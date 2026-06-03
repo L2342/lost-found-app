@@ -3,6 +3,8 @@ import '../../models/report_model.dart';
 import '../../services/report_service.dart';
 import '../../widgets/report_card.dart';
 import '../detail/detail_screen.dart';
+import '../../services/auth_service.dart';
+import '../auth/login_screen.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -44,6 +46,24 @@ class _FeedScreenState extends State<FeedScreen> {
         centerTitle: true,
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await AuthService().logout();
+
+              if (!context.mounted) return;
+
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const LoginScreen(),
+                ),
+                (route) => false,
+              );
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -138,7 +158,7 @@ class _FeedScreenState extends State<FeedScreen> {
       label: Text(label),
       selected: selected,
       onSelected: (_) => setState(() => _filtroTipo = value),
-      selectedColor: Colors.indigo,
+      selectedColor: Colors.deepPurple,
       labelStyle: TextStyle(
         color: selected ? Colors.white : Colors.black87,
         fontWeight: FontWeight.w500,
