@@ -5,8 +5,8 @@ import '../../services/auth_service.dart';
 import '../../widgets/report_card.dart';
 import '../detail/detail_screen.dart';
 import '../admin/admin_screen.dart';
-import '../profile/my_reports_screen.dart';
-import '../profile/report_form_screen.dart';
+import '../my_reports_screen.dart';
+import '../report_form_screen.dart';
 import '../profile/profile_screen.dart';
 
 class FeedScreen extends StatefulWidget {
@@ -50,7 +50,7 @@ class _FeedScreenState extends State<FeedScreen> {
       case 2:
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const ProfileScreen()),
+          MaterialPageRoute(builder: (_) => ProfileScreen()),
         );
         break;
     }
