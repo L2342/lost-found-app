@@ -5,6 +5,7 @@ from firebase_admin import credentials, firestore
 from google import genai
 from google.genai import types  # Importación necesaria para enviar las imágenes correctamente
 import base64, os, json
+import mimetypes
 from functools import wraps
 from dotenv import load_dotenv
 
@@ -53,16 +54,26 @@ def get_estadisticas():
         total_perdidos   = len(db.collection('reportes').where('tipo',   '==', 'perdido').get())
         total_encontrados= len(db.collection('reportes').where('tipo',   '==', 'encontrado').get())
         total_recuperados= len(db.collection('reportes').where('estado', '==', 'recuperado').get())
+        total_no_recuperados = max(total_reportes - total_recuperados, 0)
 
         return jsonify({
+            # Claves esperadas por el frontend admin actual.
+            'total_usuarios': total_usuarios,
+            'total_reportes': total_reportes,
+            'reportes_perdidos': total_perdidos,
+            'reportes_encontrados': total_encontrados,
+            'recuperados': total_recuperados,
+            'no_recuperados': total_no_recuperados,
+            # Compatibilidad hacia atrás para consumidores anteriores.
             'success': True,
             'data': {
-                'usuarios':    total_usuarios,
-                'reportes':    total_reportes,
-                'perdidos':    total_perdidos,
+                'usuarios': total_usuarios,
+                'reportes': total_reportes,
+                'perdidos': total_perdidos,
                 'encontrados': total_encontrados,
                 'recuperados': total_recuperados,
-            }
+                'no_recuperados': total_no_recuperados,
+            },
         })
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 400
@@ -107,13 +118,27 @@ def delete_reporte(report_id):
 @app.route('/ia/validar-imagen', methods=['POST'])
 def validar_imagen():
     try:
+        def _resolver_mime(file_name: str | None, incoming_mime: str | None) -> str:
+            mime = (incoming_mime or '').strip().lower()
+            if mime.startswith('image/'):
+                return mime
+
+            guessed_mime, _ = mimetypes.guess_type(file_name or '')
+            if guessed_mime and guessed_mime.startswith('image/'):
+                return guessed_mime
+
+            return 'image/jpeg'
+
         if 'imagen' in request.files:
             file = request.files['imagen']
             image_bytes = file.read()
-            mime_type   = file.content_type or 'image/jpeg'
+            mime_type = _resolver_mime(file.filename, file.content_type)
         elif request.is_json and 'imagen_base64' in request.json:
             image_bytes = base64.b64decode(request.json['imagen_base64'])
-            mime_type   = request.json.get('mime_type', 'image/jpeg')
+            mime_type = _resolver_mime(
+                request.json.get('filename'),
+                request.json.get('mime_type'),
+            )
         else:
             return jsonify({'valida': False, 'mensaje': 'No se recibio ninguna imagen'}), 400
 

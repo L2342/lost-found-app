@@ -167,52 +167,66 @@ class _AdminScreenState extends State<AdminScreen> {
 
   // ── INICIO del panel (fiel al mockup)
   Widget _buildInicio() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'NØ',
-              style: TextStyle(
-                fontSize: 64,
-                fontWeight: FontWeight.w900,
-                color: Colors.black,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight - 40),
+            child: Center(
+              child: SizedBox(
+                width: 520,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'NØ',
+                      style: TextStyle(
+                        fontSize: 64,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Bienvenido @Admin',
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      '¿Qué deseas hacer?',
+                      style: TextStyle(color: Colors.grey, fontSize: 14),
+                    ),
+                    const SizedBox(height: 32),
+                    // Botón gestión de usuarios
+                    _adminCard(
+                      icon: Icons.person_outline,
+                      label: 'Gestión de usuarios',
+                      onTap: () =>
+                          setState(() => _vista = _AdminVista.usuarios),
+                    ),
+                    const SizedBox(height: 14),
+                    _adminCard(
+                      icon: Icons.tune,
+                      label: 'Ver métricas de la app',
+                      onTap: () =>
+                          setState(() => _vista = _AdminVista.estadisticas),
+                    ),
+                    const SizedBox(height: 14),
+                    _adminCard(
+                      icon: Icons.image_search,
+                      label: 'Validar imagen con IA',
+                      onTap: () =>
+                          setState(() => _vista = _AdminVista.validarIA),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Bienvenido @Admin',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              '¿Qué deseas hacer?',
-              style: TextStyle(color: Colors.grey, fontSize: 14),
-            ),
-            const SizedBox(height: 40),
-            // Botón gestión de usuarios
-            _adminCard(
-              icon: Icons.person_outline,
-              label: 'Gestión de usuarios',
-              onTap: () => setState(() => _vista = _AdminVista.usuarios),
-            ),
-            const SizedBox(height: 16),
-            _adminCard(
-              icon: Icons.tune,
-              label: 'Ver métricas de la app',
-              onTap: () => setState(() => _vista = _AdminVista.estadisticas),
-            ),
-            const SizedBox(height: 16),
-            _adminCard(
-              icon: Icons.image_search,
-              label: 'Validar imagen con IA',
-              onTap: () => setState(() => _vista = _AdminVista.validarIA),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -234,9 +248,13 @@ class _AdminScreenState extends State<AdminScreen> {
           children: [
             Icon(icon, size: 36, color: Colors.black87),
             const SizedBox(height: 8),
-            Text(label,
-                style:
-                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            ),
           ],
         ),
       ),

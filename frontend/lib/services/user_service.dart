@@ -1,5 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
+import '../config/app_config.dart';
 
 /// Servicio de usuarios — implementado con Firestore.
 /// David usa: getById (datos del publicante en detalle)
@@ -49,6 +52,22 @@ class UserService {
   /// Nota: esto borra el documento pero NO la cuenta de Firebase Auth.
   /// Para borrar Auth necesita Firebase Admin SDK (backend Flask).
   Future<void> deleteUser(String uid) async {
-    await _col.doc(uid).delete();
+    final uri =
+        Uri.parse('${AppConfig.backendBaseUrl}/api/admin/usuarios/$uid');
+    final res = await http.delete(
+      uri,
+      headers: {'Authorization': 'Bearer ${AppConfig.adminToken}'},
+    );
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      String mensaje = 'No se pudo eliminar el usuario';
+      try {
+        final body = jsonDecode(res.body);
+        if (body is Map && body['message'] is String) {
+          mensaje = body['message'];
+        }
+      } catch (_) {}
+      throw Exception(mensaje);
+    }
   }
 }
