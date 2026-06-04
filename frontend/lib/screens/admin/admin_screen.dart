@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import '../../models/user_model.dart';
 import '../../services/user_service.dart';
 import '../../config/app_config.dart';
+import 'dart:typed_data';
+import 'package:image_picker/image_picker.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -157,6 +159,7 @@ class _AdminScreenState extends State<AdminScreen> {
           _AdminVista.inicio => _buildInicio(),
           _AdminVista.estadisticas => _buildEstadisticas(),
           _AdminVista.usuarios => _buildGestionUsuarios(),
+          _AdminVista.validarIA => _buildValidarIA(),
         },
       ),
     );
@@ -196,11 +199,16 @@ class _AdminScreenState extends State<AdminScreen> {
               onTap: () => setState(() => _vista = _AdminVista.usuarios),
             ),
             const SizedBox(height: 16),
-            // Botón métricas
             _adminCard(
               icon: Icons.tune,
               label: 'Ver métricas de la app',
               onTap: () => setState(() => _vista = _AdminVista.estadisticas),
+            ),
+            const SizedBox(height: 16),
+            _adminCard(
+              icon: Icons.image_search,
+              label: 'Validar imagen con IA',
+              onTap: () => setState(() => _vista = _AdminVista.validarIA),
             ),
           ],
         ),
@@ -475,6 +483,165 @@ class _AdminScreenState extends State<AdminScreen> {
       ],
     );
   }
+
+  // ── VALIDAR IMAGEN CON IA
+  Uint8List? _imagenBytes;
+  String? _iaResultado;
+  bool _iaLoading = false;
+
+  Future<void> _seleccionarYValidarImagen() async {
+    // En web usamos bytes directamente
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+
+    final bytes = await picked.readAsBytes();
+    setState(() {
+      _imagenBytes = bytes;
+      _iaResultado = null;
+    });
+
+    await _validarConIA(bytes, picked.name);
+  }
+
+  Future<void> _validarConIA(Uint8List bytes, String nombre) async {
+    setState(() => _iaLoading = true);
+    try {
+      final uri = Uri.parse('${AppConfig.backendBaseUrl}/ia/validar-imagen');
+      final request = http.MultipartRequest('POST', uri)
+        ..headers['Authorization'] = 'Bearer ${AppConfig.adminToken}'
+        ..files.add(
+            http.MultipartFile.fromBytes('imagen', bytes, filename: nombre));
+
+      final streamed =
+          await request.send().timeout(const Duration(seconds: 20));
+      final res = await http.Response.fromStream(streamed);
+      final body = jsonDecode(res.body);
+
+      setState(() {
+        _iaResultado = body['valida'] == true
+            ? '✅ ${body['mensaje'] ?? 'Imagen válida para publicación'}'
+            : '❌ ${body['mensaje'] ?? 'Imagen no permitida'}';
+        _iaLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _iaResultado = '⚠️ Error al conectar con el servicio de IA';
+        _iaLoading = false;
+      });
+    }
+  }
+
+  Widget _buildValidarIA() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Validar imagen con IA',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          const Text(
+              'Sube una imagen para verificar si es válida para publicar en la plataforma.',
+              style: TextStyle(color: Colors.grey, fontSize: 13)),
+          const SizedBox(height: 24),
+
+          // Área de imagen
+          GestureDetector(
+            onTap: _seleccionarYValidarImagen,
+            child: Container(
+              width: double.infinity,
+              height: 220,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFF7B6FF0),
+                  style: BorderStyle.solid,
+                  width: 2,
+                ),
+              ),
+              child: _imagenBytes != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Image.memory(_imagenBytes!, fit: BoxFit.cover))
+                  : const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add_photo_alternate_outlined,
+                            size: 48, color: Color(0xFF7B6FF0)),
+                        SizedBox(height: 8),
+                        Text('Toca para seleccionar imagen',
+                            style: TextStyle(color: Colors.grey)),
+                      ],
+                    ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Botón validar
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _iaLoading ? null : _seleccionarYValidarImagen,
+              icon: _iaLoading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.auto_awesome),
+              label:
+                  Text(_iaLoading ? 'Validando...' : 'Seleccionar y validar'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF7B6FF0),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+
+          // Resultado IA
+          if (_iaResultado != null) ...[
+            const SizedBox(height: 20),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _iaResultado!.startsWith('✅')
+                    ? Colors.green.shade50
+                    : _iaResultado!.startsWith('❌')
+                        ? Colors.red.shade50
+                        : Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _iaResultado!.startsWith('✅')
+                      ? Colors.green
+                      : _iaResultado!.startsWith('❌')
+                          ? Colors.red
+                          : Colors.orange,
+                ),
+              ),
+              child: Text(
+                _iaResultado!,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: _iaResultado!.startsWith('✅')
+                      ? Colors.green.shade700
+                      : _iaResultado!.startsWith('❌')
+                          ? Colors.red.shade700
+                          : Colors.orange.shade700,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
-enum _AdminVista { inicio, estadisticas, usuarios }
+enum _AdminVista { inicio, estadisticas, usuarios, validarIA }

@@ -21,37 +21,81 @@ class _FeedScreenState extends State<FeedScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
 
   String _query = '';
-  String _filtroTipo = 'todos';
-  int _currentIndex = 0; // índice barra inferior
+
+  // ── Filtros US-15
+  String _filtroFecha = 'todos'; // 'todos' | 'reciente' | 'antiguo'
+  String _filtroObjeto = 'todos'; // 'todos' | categorías
+  String _filtroLugar = 'todos'; // 'todos' | bloques
+
+  // Categorías según el documento
+  static const List<String> _categorias = [
+    'todos',
+    'termos',
+    'llaves',
+    'anillos',
+    'electrodomésticos',
+    'ropa',
+    'útiles escolares',
+    'otros'
+  ];
+
+  // Lugares/bloques según el documento
+  static const List<String> _lugares = [
+    'todos',
+    'Bloque A',
+    'Bloque B',
+    'Bloque C',
+    'Bloque D'
+  ];
 
   List<ReportModel> _filtrar(List<ReportModel> lista) {
-    return lista.where((r) {
-      final pasaTipo = _filtroTipo == 'todos' || r.tipo == _filtroTipo;
+    List<ReportModel> resultado = List.from(lista);
+
+    // Filtro por búsqueda de texto
+    if (_query.isNotEmpty) {
       final q = _query.toLowerCase();
-      final pasaBusqueda = q.isEmpty ||
-          r.titulo.toLowerCase().contains(q) ||
-          r.descripcion.toLowerCase().contains(q);
-      return pasaTipo && pasaBusqueda;
-    }).toList();
+      resultado = resultado
+          .where((r) =>
+              r.titulo.toLowerCase().contains(q) ||
+              r.descripcion.toLowerCase().contains(q))
+          .toList();
+    }
+
+    // Filtro por objeto/categoría
+    if (_filtroObjeto != 'todos') {
+      resultado = resultado
+          .where(
+              (r) => r.categoria.toLowerCase() == _filtroObjeto.toLowerCase())
+          .toList();
+    }
+
+    // Filtro por lugar
+    if (_filtroLugar != 'todos') {
+      resultado = resultado
+          .where((r) =>
+              r.ubicacion.toLowerCase().contains(_filtroLugar.toLowerCase()))
+          .toList();
+    }
+
+    // Filtro por fecha
+    if (_filtroFecha == 'reciente') {
+      resultado.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    } else if (_filtroFecha == 'antiguo') {
+      resultado.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    }
+
+    return resultado;
   }
 
   void _onNavTap(int index) {
-    if (index == _currentIndex) return;
     switch (index) {
-      case 0:
-        setState(() => _currentIndex = 0);
-        break;
       case 1:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const MyReportsScreen()),
-        );
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const MyReportsScreen()));
         break;
       case 2:
         Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => ProfileScreen()),
-        );
+            context, MaterialPageRoute(builder: (_) => ProfileScreen()));
         break;
     }
   }
@@ -74,30 +118,23 @@ class _FeedScreenState extends State<FeedScreen> {
         elevation: 0,
         title: Row(
           children: [
-            // Logo "NØ" fiel al mockup
-            const Text(
-              'NØ',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                color: Colors.black,
-                letterSpacing: -1,
-              ),
-            ),
+            const Text('NØ',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.black,
+                  letterSpacing: -1,
+                )),
             const Spacer(),
             if (esAdmin)
               IconButton(
                 icon:
                     const Icon(Icons.admin_panel_settings, color: Colors.black),
-                tooltip: 'Panel admin',
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AdminScreen()),
-                ),
+                onPressed: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const AdminScreen())),
               ),
           ],
         ),
-        // Barra de búsqueda integrada en el AppBar como en el mockup
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
           child: Padding(
@@ -115,8 +152,7 @@ class _FeedScreenState extends State<FeedScreen> {
                         onPressed: () {
                           _searchCtrl.clear();
                           setState(() => _query = '');
-                        },
-                      )
+                        })
                     : const Icon(Icons.search, color: Colors.grey),
                 filled: true,
                 fillColor: const Color(0xFFF0EFFF),
@@ -130,24 +166,83 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
         ),
       ),
-
       body: Column(
         children: [
-          // Filtros tipo chip
-          Padding(
+          // ── Barra de filtros (US-15) — fiel al mockup
+          Container(
+            color: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
-                _buildChip('Todos', 'todos'),
+                // Filtro por fecha
+                _buildDropdown(
+                  label: 'Por fecha',
+                  value: _filtroFecha,
+                  items: const {
+                    'todos': 'Por fecha',
+                    'reciente': 'Más reciente',
+                    'antiguo': 'Más antiguo',
+                  },
+                  onChanged: (v) => setState(() => _filtroFecha = v!),
+                ),
                 const SizedBox(width: 8),
-                _buildChip('Perdidos', 'perdido'),
+                // Filtro por objeto/categoría
+                _buildDropdown(
+                  label: 'Por objeto',
+                  value: _filtroObjeto,
+                  items: {
+                    for (var c in _categorias)
+                      c: c == 'todos' ? 'Por objeto' : _capitalizar(c)
+                  },
+                  onChanged: (v) => setState(() => _filtroObjeto = v!),
+                ),
                 const SizedBox(width: 8),
-                _buildChip('Encontrados', 'encontrado'),
+                // Filtro por lugar
+                _buildDropdown(
+                  label: 'Por lugar',
+                  value: _filtroLugar,
+                  items: {
+                    for (var l in _lugares) l: l == 'todos' ? 'Por lugar' : l
+                  },
+                  onChanged: (v) => setState(() => _filtroLugar = v!),
+                ),
               ],
             ),
           ),
 
-          // Lista de reportes
+          // Indicador de filtros activos
+          if (_filtroFecha != 'todos' ||
+              _filtroObjeto != 'todos' ||
+              _filtroLugar != 'todos')
+            Container(
+              color: const Color(0xFFF0EFFF),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.filter_list,
+                      size: 14, color: Color(0xFF7B6FF0)),
+                  const SizedBox(width: 4),
+                  const Text('Filtros activos',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF7B6FF0))),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => setState(() {
+                      _filtroFecha = 'todos';
+                      _filtroObjeto = 'todos';
+                      _filtroLugar = 'todos';
+                    }),
+                    child: const Text('Limpiar',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF7B6FF0),
+                          fontWeight: FontWeight.bold,
+                        )),
+                  ),
+                ],
+              ),
+            ),
+
+          // Lista de reportes (US-12)
           Expanded(
             child: StreamBuilder<List<ReportModel>>(
               stream: _service.getAll(),
@@ -160,8 +255,25 @@ class _FeedScreenState extends State<FeedScreen> {
                 }
                 final filtrados = _filtrar(snapshot.data ?? []);
                 if (filtrados.isEmpty) {
-                  return const Center(
-                      child: Text('No se encontraron reportes'));
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.search_off,
+                            size: 48, color: Colors.grey),
+                        const SizedBox(height: 8),
+                        Text(
+                          _query.isNotEmpty ||
+                                  _filtroFecha != 'todos' ||
+                                  _filtroObjeto != 'todos' ||
+                                  _filtroLugar != 'todos'
+                              ? 'Sin resultados para estos filtros'
+                              : 'No hay reportes disponibles',
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  );
                 }
                 return ListView.builder(
                   padding: const EdgeInsets.only(bottom: 80),
@@ -171,11 +283,9 @@ class _FeedScreenState extends State<FeedScreen> {
                     return ReportCard(
                       report: r,
                       onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DetailScreen(reportId: r.id),
-                        ),
-                      ),
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => DetailScreen(reportId: r.id))),
                     );
                   },
                 );
@@ -184,17 +294,13 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
         ],
       ),
-
-      // FAB — botón + para publicar reporte (como en el mockup)
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF7B6FF0),
         onPressed: () => _mostrarDialogoTipoReporte(context),
         child: const Icon(Icons.add, color: Colors.white),
       ),
-
-      // Barra de navegación inferior fiel al mockup
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
+        currentIndex: 0,
         onTap: _onNavTap,
         selectedItemColor: const Color(0xFF7B6FF0),
         unselectedItemColor: Colors.grey,
@@ -221,12 +327,53 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
+  Widget _buildDropdown({
+    required String label,
+    required String value,
+    required Map<String, String> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    final isActive = value != 'todos';
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: isActive
+              ? const Color(0xFF7B6FF0).withValues(alpha: 0.1)
+              : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isActive ? const Color(0xFF7B6FF0) : Colors.grey.shade300,
+          ),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: value,
+            isExpanded: true,
+            icon: Icon(Icons.keyboard_arrow_down,
+                size: 16,
+                color: isActive ? const Color(0xFF7B6FF0) : Colors.grey),
+            style: TextStyle(
+              fontSize: 11,
+              color: isActive ? const Color(0xFF7B6FF0) : Colors.black87,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            ),
+            items: items.entries
+                .map(
+                    (e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+                .toList(),
+            onChanged: onChanged,
+          ),
+        ),
+      ),
+    );
+  }
+
   void _mostrarDialogoTipoReporte(BuildContext context) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -238,37 +385,33 @@ class _FeedScreenState extends State<FeedScreen> {
             const SizedBox(height: 20),
             ListTile(
               leading: const CircleAvatar(
-                backgroundColor: Color(0xFFFFE5E5),
-                child: Icon(Icons.search_off, color: Colors.red),
-              ),
+                  backgroundColor: Color(0xFFFFE5E5),
+                  child: Icon(Icons.search_off, color: Colors.red)),
               title: const Text('Objeto perdido'),
               subtitle: const Text('Perdí algo y necesito ayuda'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const ReportFormScreen(tipo: 'perdido'),
-                  ),
-                );
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            const ReportFormScreen(tipo: 'perdido')));
               },
             ),
             const SizedBox(height: 8),
             ListTile(
               leading: const CircleAvatar(
-                backgroundColor: Color(0xFFE5FFE5),
-                child: Icon(Icons.check_circle_outline, color: Colors.green),
-              ),
+                  backgroundColor: Color(0xFFE5FFE5),
+                  child: Icon(Icons.check_circle_outline, color: Colors.green)),
               title: const Text('Objeto encontrado'),
               subtitle: const Text('Encontré algo y quiero devolverlo'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const ReportFormScreen(tipo: 'encontrado'),
-                  ),
-                );
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            const ReportFormScreen(tipo: 'encontrado')));
               },
             ),
             const SizedBox(height: 8),
@@ -278,25 +421,6 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  Widget _buildChip(String label, String value) {
-    final selected = _filtroTipo == value;
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => setState(() => _filtroTipo = value),
-      selectedColor: const Color(0xFF7B6FF0),
-      backgroundColor: Colors.white,
-      labelStyle: TextStyle(
-        color: selected ? Colors.white : Colors.black87,
-        fontWeight: FontWeight.w500,
-        fontSize: 12,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: selected ? const Color(0xFF7B6FF0) : Colors.grey.shade300,
-        ),
-      ),
-    );
-  }
+  String _capitalizar(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }
