@@ -78,7 +78,8 @@ class AuthService {
       );
 
       final user = await _fetchUser(credential.user!.uid);
-      if (user == null) throw Exception('Usuario no encontrado en la base de datos.');
+      if (user == null)
+        throw Exception('Usuario no encontrado en la base de datos.');
 
       _currentUser = user;
       return user;
@@ -100,6 +101,17 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       throw Exception(_authError(e.code));
     }
+  }
+
+  /// Refresca los datos del usuario actual desde Firestore.
+  Future<UserModel?> refreshCurrentUser() async {
+    final firebaseUser = _auth.currentUser;
+    if (firebaseUser == null) {
+      _currentUser = null;
+      return null;
+    }
+    _currentUser = await _fetchUser(firebaseUser.uid);
+    return _currentUser;
   }
 
   // ─── Interno ──────────────────────────────────────────────────

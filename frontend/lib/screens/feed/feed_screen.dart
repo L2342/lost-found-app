@@ -24,20 +24,8 @@ class _FeedScreenState extends State<FeedScreen> {
 
   // ── Filtros US-15
   String _filtroFecha = 'todos'; // 'todos' | 'reciente' | 'antiguo'
-  String _filtroObjeto = 'todos'; // 'todos' | categorías
+  String _filtroCategoria = 'todos'; // 'todos' | categorías
   String _filtroLugar = 'todos'; // 'todos' | bloques
-
-  // Categorías según el documento
-  static const List<String> _categorias = [
-    'todos',
-    'termos',
-    'llaves',
-    'anillos',
-    'electrodomésticos',
-    'ropa',
-    'útiles escolares',
-    'otros'
-  ];
 
   // Lugares/bloques según el documento
   static const List<String> _lugares = [
@@ -45,10 +33,17 @@ class _FeedScreenState extends State<FeedScreen> {
     'Bloque A',
     'Bloque B',
     'Bloque C',
-    'Bloque D'
+    'Bloque D',
+    'Pecera',
+    'Polideportivo',
+    'Posgrados',
+    'Carpa Roja',
   ];
 
-  List<ReportModel> _filtrar(List<ReportModel> lista) {
+  List<ReportModel> _filtrar(
+    List<ReportModel> lista, {
+    required String filtroCategoriaActual,
+  }) {
     List<ReportModel> resultado = List.from(lista);
 
     // Filtro por búsqueda de texto
@@ -62,10 +57,10 @@ class _FeedScreenState extends State<FeedScreen> {
     }
 
     // Filtro por objeto/categoría
-    if (_filtroObjeto != 'todos') {
+    if (filtroCategoriaActual != 'todos') {
       resultado = resultado
-          .where(
-              (r) => r.categoria.toLowerCase() == _filtroObjeto.toLowerCase())
+          .where((r) =>
+              r.categoria.toLowerCase() == filtroCategoriaActual.toLowerCase())
           .toList();
     }
 
@@ -79,9 +74,11 @@ class _FeedScreenState extends State<FeedScreen> {
 
     // Filtro por fecha
     if (_filtroFecha == 'reciente') {
-      resultado.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      resultado
+          .sort((a, b) => _fechaDelObjeto(b).compareTo(_fechaDelObjeto(a)));
     } else if (_filtroFecha == 'antiguo') {
-      resultado.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      resultado
+          .sort((a, b) => _fechaDelObjeto(a).compareTo(_fechaDelObjeto(b)));
     }
 
     return resultado;
@@ -166,133 +163,146 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
         ),
       ),
-      body: Column(
-        children: [
-          // ── Barra de filtros (US-15) — fiel al mockup
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                // Filtro por fecha
-                _buildDropdown(
-                  label: 'Por fecha',
-                  value: _filtroFecha,
-                  items: const {
-                    'todos': 'Por fecha',
-                    'reciente': 'Más reciente',
-                    'antiguo': 'Más antiguo',
-                  },
-                  onChanged: (v) => setState(() => _filtroFecha = v!),
-                ),
-                const SizedBox(width: 8),
-                // Filtro por objeto/categoría
-                _buildDropdown(
-                  label: 'Por objeto',
-                  value: _filtroObjeto,
-                  items: {
-                    for (var c in _categorias)
-                      c: c == 'todos' ? 'Por objeto' : _capitalizar(c)
-                  },
-                  onChanged: (v) => setState(() => _filtroObjeto = v!),
-                ),
-                const SizedBox(width: 8),
-                // Filtro por lugar
-                _buildDropdown(
-                  label: 'Por lugar',
-                  value: _filtroLugar,
-                  items: {
-                    for (var l in _lugares) l: l == 'todos' ? 'Por lugar' : l
-                  },
-                  onChanged: (v) => setState(() => _filtroLugar = v!),
-                ),
-              ],
-            ),
-          ),
+      body: StreamBuilder<List<ReportModel>>(
+        stream: _service.getAll(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return const Center(child: Text('Error al cargar reportes'));
+          }
 
-          // Indicador de filtros activos
-          if (_filtroFecha != 'todos' ||
-              _filtroObjeto != 'todos' ||
-              _filtroLugar != 'todos')
-            Container(
-              color: const Color(0xFFF0EFFF),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Row(
-                children: [
-                  const Icon(Icons.filter_list,
-                      size: 14, color: Color(0xFF7B6FF0)),
-                  const SizedBox(width: 4),
-                  const Text('Filtros activos',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF7B6FF0))),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => setState(() {
-                      _filtroFecha = 'todos';
-                      _filtroObjeto = 'todos';
-                      _filtroLugar = 'todos';
-                    }),
-                    child: const Text('Limpiar',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF7B6FF0),
-                          fontWeight: FontWeight.bold,
-                        )),
-                  ),
-                ],
-              ),
-            ),
+          final reportes = snapshot.data ?? [];
+          final categorias = _categoriasDisponibles(reportes);
+          final conteoCategorias = _conteoCategorias(reportes);
+          final filtroCategoriaActual = categorias.contains(_filtroCategoria)
+              ? _filtroCategoria
+              : 'todos';
 
-          // Lista de reportes (US-12)
-          Expanded(
-            child: StreamBuilder<List<ReportModel>>(
-              stream: _service.getAll(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return const Center(child: Text('Error al cargar reportes'));
-                }
-                final filtrados = _filtrar(snapshot.data ?? []);
-                if (filtrados.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.search_off,
-                            size: 48, color: Colors.grey),
-                        const SizedBox(height: 8),
-                        Text(
-                          _query.isNotEmpty ||
-                                  _filtroFecha != 'todos' ||
-                                  _filtroObjeto != 'todos' ||
-                                  _filtroLugar != 'todos'
-                              ? 'Sin resultados para estos filtros'
-                              : 'No hay reportes disponibles',
-                          style: const TextStyle(color: Colors.grey),
-                        ),
-                      ],
+          final filtrados = _filtrar(
+            reportes,
+            filtroCategoriaActual: filtroCategoriaActual,
+          );
+
+          final hayFiltrosActivos = _filtroFecha != 'todos' ||
+              filtroCategoriaActual != 'todos' ||
+              _filtroLugar != 'todos';
+
+          return Column(
+            children: [
+              // ── Barra de filtros (US-15)
+              Container(
+                color: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    _buildDropdown(
+                      label: 'Por fecha',
+                      value: _filtroFecha,
+                      items: const {
+                        'todos': 'Por fecha',
+                        'reciente': 'Más reciente',
+                        'antiguo': 'Más antiguo',
+                      },
+                      onChanged: (v) => setState(() => _filtroFecha = v!),
                     ),
-                  );
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 80),
-                  itemCount: filtrados.length,
-                  itemBuilder: (context, index) {
-                    final r = filtrados[index];
-                    return ReportCard(
-                      report: r,
-                      onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => DetailScreen(reportId: r.id))),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
+                    const SizedBox(width: 8),
+                    _buildDropdown(
+                      label: 'Por categoría',
+                      value: filtroCategoriaActual,
+                      items: {
+                        for (var c in categorias)
+                          c: c == 'todos'
+                              ? 'Por categoría'
+                              : '${_capitalizar(c)} (${conteoCategorias[c] ?? 0})'
+                      },
+                      onChanged: (v) => setState(() => _filtroCategoria = v!),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildDropdown(
+                      label: 'Por lugar',
+                      value: _filtroLugar,
+                      items: {
+                        for (var l in _lugares)
+                          l: l == 'todos' ? 'Por lugar' : l
+                      },
+                      onChanged: (v) => setState(() => _filtroLugar = v!),
+                    ),
+                  ],
+                ),
+              ),
+
+              if (hayFiltrosActivos)
+                Container(
+                  color: const Color(0xFFF0EFFF),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.filter_list,
+                          size: 14, color: Color(0xFF7B6FF0)),
+                      const SizedBox(width: 4),
+                      const Text('Filtros activos',
+                          style: TextStyle(
+                              fontSize: 12, color: Color(0xFF7B6FF0))),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => setState(() {
+                          _filtroFecha = 'todos';
+                          _filtroCategoria = 'todos';
+                          _filtroLugar = 'todos';
+                        }),
+                        child: const Text('Limpiar',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF7B6FF0),
+                              fontWeight: FontWeight.bold,
+                            )),
+                      ),
+                    ],
+                  ),
+                ),
+
+              Expanded(
+                child: filtrados.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.search_off,
+                                size: 48, color: Colors.grey),
+                            const SizedBox(height: 8),
+                            Text(
+                              _query.isNotEmpty || hayFiltrosActivos
+                                  ? 'Sin resultados para estos filtros'
+                                  : 'No hay reportes disponibles',
+                              style: const TextStyle(color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 80),
+                        itemCount: filtrados.length,
+                        itemBuilder: (context, index) {
+                          final r = filtrados[index];
+                          return ReportCard(
+                            report: r,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DetailScreen(reportId: r.id),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF7B6FF0),
@@ -423,4 +433,30 @@ class _FeedScreenState extends State<FeedScreen> {
 
   String _capitalizar(String s) =>
       s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+  List<String> _categoriasDisponibles(List<ReportModel> reportes) {
+    final categorias = <String>{};
+    for (final r in reportes) {
+      final c = r.categoria.trim().toLowerCase();
+      if (c.isNotEmpty) categorias.add(c);
+    }
+
+    final ordenadas = categorias.toList()..sort();
+    return ['todos', ...ordenadas];
+  }
+
+  Map<String, int> _conteoCategorias(List<ReportModel> reportes) {
+    final conteos = <String, int>{};
+    for (final r in reportes) {
+      final c = r.categoria.trim().toLowerCase();
+      if (c.isEmpty) continue;
+      conteos[c] = (conteos[c] ?? 0) + 1;
+    }
+    return conteos;
+  }
+
+  DateTime _fechaDelObjeto(ReportModel r) {
+    final fecha = DateTime.tryParse(r.fecha);
+    return fecha ?? r.createdAt;
+  }
 }

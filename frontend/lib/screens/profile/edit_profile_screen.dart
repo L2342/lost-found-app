@@ -6,13 +6,10 @@ class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
   @override
-  State<EditProfileScreen> createState() =>
-      _EditProfileScreenState();
+  State<EditProfileScreen> createState() => _EditProfileScreenState();
 }
 
-class _EditProfileScreenState
-    extends State<EditProfileScreen> {
-
+class _EditProfileScreenState extends State<EditProfileScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
 
@@ -44,6 +41,8 @@ class _EditProfileScreenState
         phone: _phoneController.text,
       );
 
+      await AuthService().refreshCurrentUser();
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -54,8 +53,9 @@ class _EditProfileScreenState
         ),
       );
 
-      Navigator.pop(context);
+      Navigator.pop(context, true);
     } catch (e) {
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -71,7 +71,6 @@ class _EditProfileScreenState
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -82,28 +81,22 @@ class _EditProfileScreenState
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-
             TextField(
               controller: _nameController,
               decoration: const InputDecoration(
                 labelText: 'Nombre',
               ),
             ),
-
             const SizedBox(height: 20),
-
             TextField(
               controller: _phoneController,
               decoration: const InputDecoration(
                 labelText: 'Teléfono',
               ),
             ),
-
             const SizedBox(height: 30),
-
             ElevatedButton(
-              onPressed:
-                  loading ? null : guardar,
+              onPressed: loading ? null : guardar,
               child: const Text(
                 'Guardar cambios',
               ),

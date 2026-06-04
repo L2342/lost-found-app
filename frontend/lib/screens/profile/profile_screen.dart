@@ -8,11 +8,31 @@ import '../auth/login_screen.dart';
 import 'edit_profile_screen.dart';
 import 'edit_report_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
-  ProfileScreen({super.key});
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
 
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
   final auth = AuthService();
   final reportService = ReportService();
+
+  Future<void> _abrirEdicionPerfil() async {
+    final actualizado = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const EditProfileScreen(),
+      ),
+    );
+
+    if (actualizado == true) {
+      await auth.refreshCurrentUser();
+      if (!mounted) return;
+      setState(() {});
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,9 +52,7 @@ class ProfileScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-
           const SizedBox(height: 20),
-
           const CircleAvatar(
             radius: 45,
             child: Text(
@@ -42,9 +60,7 @@ class ProfileScreen extends StatelessWidget {
               style: TextStyle(fontSize: 40),
             ),
           ),
-
           const SizedBox(height: 10),
-
           Text(
             user.name,
             style: const TextStyle(
@@ -52,28 +68,15 @@ class ProfileScreen extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-
           Text(user.email),
-
           Text(user.phone),
-
           const SizedBox(height: 10),
-
           ElevatedButton.icon(
             icon: const Icon(Icons.edit),
             label: const Text("Editar perfil"),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const EditProfileScreen(),
-                ),
-              );
-            },
+            onPressed: _abrirEdicionPerfil,
           ),
-
           const SizedBox(height: 10),
-
           ElevatedButton.icon(
             icon: const Icon(Icons.logout),
             label: const Text("Cerrar sesión"),
@@ -91,9 +94,7 @@ class ProfileScreen extends StatelessWidget {
               );
             },
           ),
-
           const Divider(),
-
           const Padding(
             padding: EdgeInsets.all(12),
             child: Text(
@@ -104,12 +105,10 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
           ),
-
           Expanded(
             child: StreamBuilder<List<ReportModel>>(
               stream: reportService.getMyReports(user.uid),
               builder: (context, snapshot) {
-
                 if (!snapshot.hasData) {
                   return const Center(
                     child: CircularProgressIndicator(),
@@ -129,7 +128,6 @@ class ProfileScreen extends StatelessWidget {
                 return ListView.builder(
                   itemCount: reportes.length,
                   itemBuilder: (context, index) {
-
                     final reporte = reportes[index];
 
                     return Card(
@@ -139,7 +137,6 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-
                           ReportCard(
                             report: reporte,
                             onTap: () {
@@ -153,12 +150,9 @@ class ProfileScreen extends StatelessWidget {
                               );
                             },
                           ),
-
                           Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.end,
+                            mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-
                               TextButton.icon(
                                 icon: const Icon(Icons.edit),
                                 label: const Text("Editar"),
@@ -166,15 +160,13 @@ class ProfileScreen extends StatelessWidget {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) =>
-                                          EditReportScreen(
+                                      builder: (_) => EditReportScreen(
                                         report: reporte,
                                       ),
                                     ),
                                   );
                                 },
                               ),
-
                               TextButton.icon(
                                 icon: const Icon(
                                   Icons.delete,
@@ -187,9 +179,7 @@ class ProfileScreen extends StatelessWidget {
                                   ),
                                 ),
                                 onPressed: () async {
-
-                                  final confirmar =
-                                      await showDialog<bool>(
+                                  final confirmar = await showDialog<bool>(
                                     context: context,
                                     builder: (_) => AlertDialog(
                                       title: const Text(
@@ -226,8 +216,7 @@ class ProfileScreen extends StatelessWidget {
                                   );
 
                                   if (confirmar == true) {
-                                    await ReportService()
-                                        .delete(reporte.id);
+                                    await ReportService().delete(reporte.id);
                                   }
                                 },
                               ),
