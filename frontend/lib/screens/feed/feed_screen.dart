@@ -108,13 +108,42 @@ class _FeedScreenState extends State<FeedScreen> {
 
         actions: [
           IconButton(
+            tooltip: 'Mis publicaciones',
+            icon: const Icon(Icons.folder_open_outlined),
+            onPressed: _abrirMisPublicaciones,
+          ),
+          if (isAdmin)
+            IconButton(
+              tooltip: 'Panel administrador',
+              icon: const Icon(Icons.admin_panel_settings_outlined),
+              onPressed: _abrirAdmin,
+            ),
+          IconButton(
+            tooltip: 'Mi perfil',
             icon: const Icon(Icons.person),
             onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => ProfileScreen(),
+                  builder: (_) =>  ProfileScreen(),
                 ),
+              );
+            },
+          ),
+          IconButton(
+            tooltip: 'Cerrar sesión',
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await AuthService().logout();
+
+              if (!context.mounted) return;
+
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const LoginScreen(),
+                ),
+                (route) => false,
               );
             },
           ),
