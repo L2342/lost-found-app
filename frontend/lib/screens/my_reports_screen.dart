@@ -126,6 +126,55 @@ class _ReportCard extends StatelessWidget {
     );
   }
 
+  // ── Cambiar estado del reporte (activo <-> recuperado) ───────
+  Future<void> _cambiarEstado(BuildContext context) async {
+    final esActivo = report.estado == 'activo';
+    final nuevoEstado = esActivo ? 'recuperado' : 'activo';
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(esActivo ? 'Marcar como recuperado' : 'Reactivar reporte'),
+        content: Text(
+          esActivo
+              ? 'Este reporte dejará de mostrarse en el feed público. ¿Deseas continuar?'
+              : 'El reporte volverá a mostrarse como activo en el feed. ¿Deseas continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true) return;
+
+    try {
+      await ReportService().update(report.id, estado: nuevoEstado);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            esActivo
+                ? 'Reporte marcado como recuperado.'
+                : 'Reporte marcado como activo.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final esPerdido = report.tipo == 'perdido';
@@ -227,9 +276,39 @@ class _ReportCard extends StatelessWidget {
                 const SizedBox(height: 12),
 
                 // ── Acciones ─────────────────────────────────
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
+                    // Cambiar estado
+                    OutlinedButton.icon(
+                      onPressed: () => _cambiarEstado(context),
+                      icon: Icon(
+                        report.estado == 'activo'
+                            ? Icons.check_circle_outline
+                            : Icons.restart_alt,
+                        size: 16,
+                      ),
+                      label: Text(
+                        report.estado == 'activo'
+                            ? 'Marcar recuperado'
+                            : 'Marcar activo',
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: report.estado == 'activo'
+                            ? Colors.green.shade700
+                            : Colors.orange.shade700,
+                        side: BorderSide(
+                          color: report.estado == 'activo'
+                              ? Colors.green.shade300
+                              : Colors.orange.shade300,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        textStyle: const TextStyle(fontSize: 13),
+                      ),
+                    ),
                     // Editar
                     OutlinedButton.icon(
                       onPressed: () => _editar(context),
@@ -243,7 +322,6 @@ class _ReportCard extends StatelessWidget {
                         textStyle: const TextStyle(fontSize: 13),
                       ),
                     ),
-                    const SizedBox(width: 8),
                     // Eliminar
                     OutlinedButton.icon(
                       onPressed: () => _confirmarEliminar(context),

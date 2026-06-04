@@ -118,7 +118,7 @@ class _FeedScreenState extends State<FeedScreen> {
         elevation: 0,
         title: Row(
           children: [
-            const Text('NØ',
+            const Text('🙂',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,

@@ -137,7 +137,7 @@ class _AdminScreenState extends State<AdminScreen> {
               )
             : null,
         title: const Text(
-          'NØ',
+          '🙂',
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w900,
@@ -180,7 +180,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text(
-                      'NØ',
+                      '🙂',
                       style: TextStyle(
                         fontSize: 64,
                         fontWeight: FontWeight.w900,
