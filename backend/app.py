@@ -16,8 +16,23 @@ app = Flask(__name__)
 CORS(app)
 
 # ─── Firebase Admin SDK ───────────────────────────────────────────────────────
-cred = credentials.Certificate('serviceAccountKey.json')
-firebase_admin.initialize_app(cred)
+def _cargar_credenciales_firebase():
+    # Producción: variable de entorno con el JSON completo.
+    raw_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON', '').strip()
+    if raw_json:
+        return credentials.Certificate(json.loads(raw_json))
+
+    # Opción alternativa: variable en base64.
+    raw_b64 = os.environ.get('FIREBASE_SERVICE_ACCOUNT_B64', '').strip()
+    if raw_b64:
+        decoded = base64.b64decode(raw_b64).decode('utf-8')
+        return credentials.Certificate(json.loads(decoded))
+
+    # Desarrollo local: archivo físico.
+    return credentials.Certificate('serviceAccountKey.json')
+
+
+firebase_admin.initialize_app(_cargar_credenciales_firebase())
 db = firestore.client()
 
 # ─── Gemini API (CORREGIDO) ───────────────────────────────────────────────────
@@ -172,9 +187,12 @@ NO VALIDA si muestra personas, contenido inapropiado, pantalla en blanco o captu
         return jsonify({'valida': result.get('valida', False), 'mensaje': result.get('razon', '')})
 
     except Exception as e:
-        # Imprime el error real en tu consola para depurar fallos de credenciales o de Firebase
         print(f"Error en validación IA: {e}")
         return jsonify({'valida': False, 'mensaje': f'Error en el servidor: {str(e)}'}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(
+        host='0.0.0.0',
+        debug=True,
+        port=int(os.environ.get('PORT', 5000)),
+    )

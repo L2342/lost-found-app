@@ -63,3 +63,34 @@ flutter run -d chrome --dart-define=ADMIN_TOKEN=tu_token
 http://localhost:5000/api/admin/estadisticas
 http://localhost:5000/api/admin/usuarios
 ```
+
+## Despliegue recomendado (Render)
+
+El proyecto ya incluye:
+- `backend/requirements.txt`
+- `backend/Procfile`
+- `render.yaml` (en la raíz del repo)
+
+### 1) Crear servicio en Render
+- Conecta tu repo en Render.
+- Render detectará `render.yaml` automáticamente.
+
+### 2) Variables de entorno en Render
+Configura estas variables en el servicio web:
+- `GEMINI_API_KEY`
+- `ADMIN_TOKEN`
+- `FIREBASE_SERVICE_ACCOUNT_JSON` (JSON completo de la service account en una sola línea)
+
+Opcional:
+- `FIREBASE_SERVICE_ACCOUNT_B64` (si prefieres guardar el JSON en base64)
+
+### 3) Usar URL fija en Flutter
+Cuando Render te entregue una URL, por ejemplo:
+- `https://encuentralo-backend.onrender.com`
+
+Corre Flutter así:
+```bash
+flutter run --dart-define=BACKEND_BASE_URL=https://encuentralo-backend.onrender.com
+```
+
+Con esto, ya no dependes de la IP local ni de cambios de WiFi.
